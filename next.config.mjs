@@ -18,5 +18,11 @@ const config = {
     locales: ["en"],
     defaultLocale: "en",
   },
+  swcMinify: true,
+  transpilePackages: ["@acme/api", "@acme/db"],
+  // We already do linting on GH actions
+  eslint: {
+    ignoreDuringBuilds: !!process.env.CI,
+  },
 };
 export default config;
