@@ -5,12 +5,11 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "postinstall": "prisma generate",
+    "postinstall": "cd packages/db prisma generate",
     "lint": "next lint",
     "start": "next start"
   },
   "dependencies": {
-    "@acme/api": "*",
     "@clerk/nextjs": "^4.16.2",
     "@prisma/client": "^4.11.0",
     "@tanstack/react-query": "^4.28.0",
