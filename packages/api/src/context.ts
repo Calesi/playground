@@ -1,4 +1,4 @@
-import { prisma } from "@acme/db";
+import { prisma } from "../../db";
 import { type inferAsyncReturnType } from "@trpc/server";
 import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 import { getAuth } from "@clerk/nextjs/server";
@@ -19,6 +19,7 @@ type AuthContextProps = {
  *  - trpc's `createSSGHelpers` where we don't have req/res
  * @see https://beta.create.t3.gg/en/usage/trpc#-servertrpccontextts
  */
+// eslint-disable-next-line @typescript-eslint/require-await
 export const createContextInner = async ({ auth }: AuthContextProps) => {
   return {
     auth,
