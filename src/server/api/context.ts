@@ -1,4 +1,5 @@
-import { prisma } from "../../db";
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { prisma } from "../db";
 import { type inferAsyncReturnType } from "@trpc/server";
 import { type CreateNextContextOptions } from "@trpc/server/adapters/next";
 import { getAuth } from "@clerk/nextjs/server";

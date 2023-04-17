@@ -1,0 +1,27 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider     = "mysql"
+    url          = env("DATABASE_URL")
+    relationMode = "prisma"
+}
+
+model PbItem {
+    id              String   @id @default(cuid())
+    url             String
+    title           String?
+    normalPrice     Float?
+    affordablePrice Float?
+    createdAt       DateTime @default(now())
+}
+
+model PbOrder {
+    id         String @id @default(cuid())
+    orderName  String
+    orderItems Json   @default("[]")
+}
