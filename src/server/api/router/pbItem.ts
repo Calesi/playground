@@ -2,44 +2,37 @@
 import { router, publicProcedure, protectedProcedure } from "../trpc";
 import { z } from "zod";
 import axios from "axios";
-import { load } from "cheerio";
+import { type CheerioAPI, load } from "cheerio";
 
-export type PbItemType = {
-  id: string;
-  title: string;
-  normalPrice: number;
-  affordablePrice: number;
-};
-
-export const pbeScrapeRouter = router({
+export const pbItemRouter = router({
   all: publicProcedure.query(async ({ ctx }) => {
     const pbItems = await ctx.prisma.pbItem.findMany();
-    // const itemsComplete: PbItemType[] = [];
-    // if (pbItems.length < 1) {
-    //   return itemsComplete;
-    // }
-    // await Promise.all(
-    //   pbItems.map(async (pbItem: { url: string; id: string }) => {
-    //     const normalItem = await getPBItemByUrl(pbItem.url);
-    //     const acItem = await getPBitemByURLForAC(pbItem.url);
-    //     if (typeof normalItem != "string" && typeof acItem != "string") {
-    //       itemsComplete.push({
-    //         id: pbItem.id,
-    //         ...normalItem,
-    //         ...acItem,
-    //       });
-    //     }
-    //   })
-    // );
-
-    // itemsComplete.sort((a: PbItemType, b: PbItemType) => {
-    //   if (a.id > b.id) return -1;
-    //   return 1;
-    // });
     return pbItems;
   }),
   byURL: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
     return ctx.prisma.pbItem.findFirst({ where: { url: input } });
+  }),
+  updatePrices: publicProcedure.query(async ({ ctx }) => {
+    const pbItems = await ctx.prisma.pbItem.findMany();
+    if (!pbItems) {
+      return { message: "Not Found" };
+    }
+    await Promise.all(
+      pbItems.map(async (pbItem) => {
+        const normalItem = await getPBItemByUrl(pbItem.url);
+        const affordableItem = await getPBitemByURLForAC(pbItem.url);
+        if (
+          typeof normalItem != "string" &&
+          typeof affordableItem != "string"
+        ) {
+          await ctx.prisma.pbItem.update({
+            where: { id: pbItem.id },
+            data: { ...normalItem, ...affordableItem },
+          });
+        }
+      })
+    );
+    return { message: "Done" };
   }),
   create: protectedProcedure
     .input(
@@ -81,17 +74,7 @@ const getPBitemByURLForAC = async (url: string) => {
 
   const loadedData = load(response.data);
 
-  let priceDollars = loadedData(
-    `div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div:nth-child(2) div div.price_wrap.price_height_fix span.ginc span span.dollars`
-  ).text();
-  const priceCents = loadedData(
-    `div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div:nth-child(2) div div.price_wrap.price_height_fix span.ginc span span.explist_price_cents.mobile_cents.position-relative`
-  ).text();
-
-  priceDollars = priceDollars.replace("$", "");
-  const priceDollarsInt = parseInt(priceDollars);
-  const priceCentsInt = parseInt(priceCents) / 100;
-  const actualPrice = priceDollarsInt + priceCentsInt;
+  const actualPrice = getDollars(loadedData);
   return { affordablePrice: actualPrice };
 };
 
@@ -110,16 +93,40 @@ const getPBItemByUrl = async (url: string) => {
   const title = loadedData(
     `div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-xl-8.col-xxl-9.js-product-header-block.product-header-block h1`
   ).text();
+
+  const actualPrice = getDollars(loadedData);
+  return { title, normalPrice: actualPrice };
+};
+
+const getDollars = (loadedData: CheerioAPI) => {
   let priceDollars = loadedData(
     `div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div:nth-child(2) div div.price_wrap.price_height_fix span.ginc span span.dollars`
   ).text();
-  const priceCents = loadedData(
+  let priceCents = loadedData(
     `div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div:nth-child(2) div div.price_wrap.price_height_fix span.ginc span span.explist_price_cents.mobile_cents.position-relative`
   ).text();
 
   priceDollars = priceDollars.replace("$", "");
-  const priceDollarsInt = parseInt(priceDollars);
-  const priceCentsInt = parseInt(priceCents) / 100;
-  const actualPrice = priceDollarsInt + priceCentsInt;
-  return { title, normalPrice: actualPrice };
+  let priceDollarsInt = parseInt(priceDollars);
+  let priceCentsInt = parseInt(priceCents) / 100;
+  let actualPrice = priceDollarsInt + priceCentsInt;
+
+  // Maybe Promo?
+  if (Number.isNaN(actualPrice)) {
+    priceDollars = loadedData(
+      "div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div.promo-image-info-container.d-flex.align-items-center.justify-content-center.py-3 div div div.d-flex div.pe-4.position-relative.price_height_fix span.ginc span span.dollars"
+    ).text();
+    priceCents = loadedData(
+      "div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div.promo-image-info-container.d-flex.align-items-center.justify-content-center.py-3 div div div.d-flex div.pe-4.position-relative.price_height_fix span.ginc span span.explist_price_cents.mobile_cents"
+    ).text();
+
+    priceDollars = priceDollars.replace("$", "");
+    priceDollarsInt = parseInt(priceDollars);
+    priceCentsInt = parseInt(priceCents) / 100;
+    actualPrice = priceDollarsInt + priceCentsInt;
+  }
+  if (Number.isNaN(actualPrice)) {
+    return 0;
+  }
+  return actualPrice;
 };

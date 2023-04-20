@@ -1,6 +1,7 @@
 import { router } from "~/server/api/trpc";
 import { authRouter } from "./router/auth";
-import { pbeScrapeRouter } from "./router/pbItem";
+import { pbItemRouter } from "./router/pbItem";
+import { pbOrderRouter } from "./router/pbOrder";
 
 /**
  * This is the primary router for your server.
@@ -9,7 +10,8 @@ import { pbeScrapeRouter } from "./router/pbItem";
  */
 export const appRouter = router({
   auth: authRouter,
-  pbeScrape: pbeScrapeRouter,
+  pbItem: pbItemRouter,
+  pbOrder: pbOrderRouter,
 });
 
 // export type definition of API

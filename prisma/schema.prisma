@@ -13,8 +13,8 @@ datasource db {
 
 model PbItem {
     id              String   @id @default(cuid())
-    url             String
-    title           String?
+    url             String   @db.Text
+    title           String?  @db.Text
     normalPrice     Float?
     affordablePrice Float?
     createdAt       DateTime @default(now())
