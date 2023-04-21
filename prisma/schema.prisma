@@ -15,6 +15,7 @@ model PbItem {
     id              String   @id @default(cuid())
     url             String   @db.Text
     title           String?  @db.Text
+    description     String?  @db.Text
     normalPrice     Float?
     affordablePrice Float?
     createdAt       DateTime @default(now())

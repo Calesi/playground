@@ -9,8 +9,8 @@ export const pbItemRouter = router({
     const pbItems = await ctx.prisma.pbItem.findMany();
     return pbItems;
   }),
-  byURL: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
-    return ctx.prisma.pbItem.findFirst({ where: { url: input } });
+  byId: publicProcedure.input(z.string()).query(async ({ ctx, input }) => {
+    return ctx.prisma.pbItem.findFirst({ where: { id: input } });
   }),
   updatePrices: publicProcedure.query(async ({ ctx }) => {
     const pbItems = await ctx.prisma.pbItem.findMany();
@@ -35,17 +35,20 @@ export const pbItemRouter = router({
     return { message: "Done" };
   }),
   create: protectedProcedure
-    .input(
-      z.object({
-        url: z.string(),
-      })
-    )
+    .input(z.string())
     .mutation(async ({ ctx, input }) => {
-      const normalItem = await getPBItemByUrl(input.url);
-      const affordableItem = await getPBitemByURLForAC(input.url);
+      const pbItems = await ctx.prisma.pbItem.findMany({
+        where: { url: input },
+      });
+      const title = formatPbUrl(input);
+      if (pbItems.length > 0) {
+        return "Item already exists";
+      }
+      const normalItem = await getPBItemByUrl(input);
+      const affordableItem = await getPBitemByURLForAC(input);
       if (typeof normalItem != "string" && typeof affordableItem != "string") {
         return ctx.prisma.pbItem.create({
-          data: { ...input, ...normalItem, ...affordableItem },
+          data: { url: input, title, ...normalItem, ...affordableItem },
         });
       }
 
@@ -90,12 +93,12 @@ const getPBItemByUrl = async (url: string) => {
 
   const loadedData = load(response.data);
 
-  const title = loadedData(
+  const description = loadedData(
     `div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-xl-8.col-xxl-9.js-product-header-block.product-header-block h1`
   ).text();
 
   const actualPrice = getDollars(loadedData);
-  return { title, normalPrice: actualPrice };
+  return { description, normalPrice: actualPrice };
 };
 
 const getDollars = (loadedData: CheerioAPI) => {
@@ -107,6 +110,7 @@ const getDollars = (loadedData: CheerioAPI) => {
   ).text();
 
   priceDollars = priceDollars.replace("$", "");
+  priceDollars = priceDollars.replace(",", "");
   let priceDollarsInt = parseInt(priceDollars);
   let priceCentsInt = parseInt(priceCents) / 100;
   let actualPrice = priceDollarsInt + priceCentsInt;
@@ -116,11 +120,13 @@ const getDollars = (loadedData: CheerioAPI) => {
     priceDollars = loadedData(
       "div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div.promo-image-info-container.d-flex.align-items-center.justify-content-center.py-3 div div div.d-flex div.pe-4.position-relative.price_height_fix span.ginc span span.dollars"
     ).text();
+
     priceCents = loadedData(
       "div.bg-white.product_page_outer_wrap.d-print-none div div:nth-child(2) div.col-12.js-space-save-top.position-relative div div.col-12.col-md-6.col-xl-4.col-xxl-3.mt-3.order-3.js-right-column div.product_bgWrap.p-3.bgcolor.rounded div.p_price_dd div.promo-image-info-container.d-flex.align-items-center.justify-content-center.py-3 div div div.d-flex div.pe-4.position-relative.price_height_fix span.ginc span span.explist_price_cents.mobile_cents"
     ).text();
 
     priceDollars = priceDollars.replace("$", "");
+    priceDollars = priceDollars.replace(",", "");
     priceDollarsInt = parseInt(priceDollars);
     priceCentsInt = parseInt(priceCents) / 100;
     actualPrice = priceDollarsInt + priceCentsInt;
@@ -129,4 +135,12 @@ const getDollars = (loadedData: CheerioAPI) => {
     return 0;
   }
   return actualPrice;
+};
+
+const formatPbUrl = (pbUrl: string) => {
+  const urlSplit = pbUrl.split("/");
+  const urlEnd = urlSplit[urlSplit.length - 1];
+  if (urlEnd) return urlEnd.split("-").join(" ");
+
+  return pbUrl;
 };

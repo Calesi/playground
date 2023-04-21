@@ -24,5 +24,8 @@ const config = {
   eslint: {
     ignoreDuringBuilds: !!process.env.CI,
   },
+  images: {
+    unoptimized: true,
+  },
 };
 export default config;

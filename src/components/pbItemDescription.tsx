@@ -1,25 +1,22 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { type inferProcedureOutput } from "@trpc/server";
 import { type AppRouter } from "~/server/api/root";
 
-export const PbItemRow: React.FC<{
+export const PbItemDescription: React.FC<{
   pbItem: inferProcedureOutput<AppRouter["pbItem"]["all"]>[number];
   onItemDelete?: () => void;
-  onRouteClick?: () => void;
-}> = ({ pbItem, onItemDelete, onRouteClick }) => {
-  if (!pbItem.affordablePrice || !pbItem.normalPrice) {
-    return <div></div>;
-  }
+}> = ({ pbItem, onItemDelete }) => {
   return (
-    <tr onClick={onRouteClick} className="cursor-pointer">
+    <tr>
       <td className="border border-slate-600 bg-slate-600 text-center">
-        {pbItem.title}
+        {pbItem.description}
       </td>
       <td className="border border-slate-600 bg-slate-600 text-center">
         {pbItem.normalPrice}
       </td>
       <td
         className={`border border-slate-600 ${
-          pbItem.affordablePrice < pbItem.normalPrice
+          pbItem.affordablePrice! < pbItem.normalPrice!
             ? " text-green-500"
             : " text-red-500"
         } bg-slate-600 text-center`}
